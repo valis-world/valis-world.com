@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Game of Life by valis-world</title> <!-- Changed title -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Floating Header Bar -->
+  <div id="header-bar" class="header-hidden"> <!-- Start hidden -->
+    <h1>Welcome to my <span class="span">Website</span></h1>
+    <a class="github" href="https://github.com/valis-world" target="_blank"> Git Hub</a>
+  </div>
+  
+  <!-- Container remains the same -->
+  <div id="container">
+    <!-- Board div is replaced by a canvas element -->
+    <canvas id="board-canvas"></canvas>
+  </div>
+  <div id="content">
+    <h2>This is my first Website</h2>
+    <p>
+        it is running on my own Pi
+    </p>
+  </div>
+  
+  <!-- Content remains the same -->
+  <div id="content">
+    <h2>About the Game of Life</h2>
+    <p>
+      The Game of Life simulation running on a grid with toroidal (wrapping) logic, rendered using HTML5 Canvas for better performance. The visual area is fixed but the simulation wraps around the edges.
+    </p>
+    <p>
+      Use the mouse wheel while hovering over the black area to zoom in and out (centered on cursor). Click and drag to pan the view.
+    </p>
+    <h2>Rules</h2>
+    <p>1. Any live cell with fewer than two live neighbors dies.</p>
+    <p>2. Any live cell with two or three live neighbors lives on.</p>
+    <p>3. Any live cell with more than three live neighbors dies.</p>
+    <p>4. Any dead cell with exactly three live neighbors becomes a live cell.</p>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

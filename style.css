@@ -1,0 +1,111 @@
+body {
+    margin: 0;
+    background-color: black;
+    font-family: Arial, sans-serif;
+    overflow: auto;
+    color: white;
+  }
+  
+  /* --- Floating Header Bar Styles --- */
+  #header-bar {
+    position: fixed; /* Keeps it fixed at the top */
+    text-align: center;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgba(20, 20, 20, 0.85); /* Translucent dark background */
+    color: white;
+    padding: 10px 40px; /* Adjust padding as needed */
+    box-sizing: border-box; /* Include padding in width */
+    z-index: 1000; /* Ensure it's above other content */
+    transition: transform 0.4s ease-in-out; /* Smooth slide transition */
+    transform: translateY(0); /* Default position (visible) */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3); /* Optional subtle shadow */
+  }
+  
+  #header-bar.header-hidden {
+    transform: translateY(-100%); /* Slide up fully out of view */
+  }
+  
+  #header-bar h1 {
+    margin: 0;
+    font-size: 1.6em; /* Adjust title size */
+    font-weight: normal;
+    display: inline-block; /* Allow other elements inline if needed */
+  }
+  
+  
+  #container {
+    width: 100vw;
+    height: 75vh;
+    overflow: hidden; /* Keep canvas drawing hidden */
+    position: relative;
+    cursor: grab;
+    background-color: #080808;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+  
+  #container.dragging { /* Use class for cursor style */
+      cursor: grabbing;
+  }
+  
+  /* Styles for the Canvas */
+  #board-canvas {
+    display: block; /* Remove extra space below canvas */
+    /* We will set width/height attributes directly via JS */
+    /* The CSS transform is no longer needed here, drawing handles it */
+    background-color: black; /* Background for area outside drawn cells */
+    image-rendering: pixelated; /* Optional: Sharper pixels when zoomed */
+    image-rendering: crisp-edges; /* Optional: For Firefox */
+  }
+  
+  /* REMOVED #board styles */
+  /* REMOVED .cell and .alive styles */
+  #content {
+    margin-top: 0;
+    padding: 20px 40px;
+    background-color: #1a1a1a;
+    color: white;
+    font-size: 1.1em;
+    line-height: 1.6;
+    min-height: 25vh;
+    box-sizing: border-box;
+  }
+  
+  #content h2 {
+    font-size: 1.8em;
+    color: #00aaff;
+    border-bottom: 1px solid #00aaff;
+    padding-bottom: 5px;
+    margin-top: 0;
+    margin-bottom: 15px;
+  }
+  
+  #content p {
+    margin-bottom: 15px;
+  }
+  
+  .github {
+    font-family: Arial;
+    font-size: 13px;
+    background-color: rgb(72, 185, 52);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    margin-right: 8px;
+    display: inline;
+    text-decoration: none;
+    transition: 0.1s;
+    cursor: pointer;
+  }
+  
+  .span {
+    margin-right: 8px;
+  }
