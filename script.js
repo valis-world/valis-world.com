@@ -15,6 +15,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const backgroundColor = '#000000'; // Black
     const cellColor = '#FFFFFF';       // White
 
+    // *** Path to the ADDITIONAL pattern file to load ***
+    // This file's contents will be ADDED to the hardcoded 'initialPattern' below
+    const patternFilesToLoad = [
+        { file: 'glider-oszilator_pattern.json', offsetX: 650, offsetY: 130 },
+        { file: 'shuttle_pattern.json', offsetX: 705, offsetY: 185},
+        { file: 'shuttle_pattern.json', offsetX: 780, offsetY: 185},
+        { file: 'shuttle_pattern.json', offsetX: 855, offsetY: 185},
+        { file: 'shuttle_pattern.json', offsetX: 710, offsetY: 260},
+        { file: 'shuttle_pattern.json', offsetX: 785, offsetY: 260},
+        { file: 'shuttle_pattern.json', offsetX: 860, offsetY: 260}
+        // Add more objects here for more files
+    ];
+
     // --- Calculated Grid Properties ---
     const gridSizeX = Math.floor(targetWidth / cellSize);
     const gridSizeY = Math.floor(targetHeight / cellSize);
@@ -25,36 +38,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('container');
     const canvas = document.getElementById('board-canvas');
     const ctx = canvas.getContext('2d');
-    // Note: headerBar is defined later
+    const headerBar = document.getElementById('header-bar'); // Defined early
 
     // --- Core Game State ---
-    let currentGameStateForDrawing = [];
+    let currentGameStateForDrawing = []; // Will be populated from worker or initial pattern
     let drawPending = false;
 
-    // --- View State (Current Rendered) ---
+    // --- View State (Current Rendered & Animation Target) ---
     let zoomLevel = 1.0;
     let boardTranslateX = 0;
     let boardTranslateY = 0;
-
-    // --- View State (Animation Target) ---
     let targetZoomLevel = 1.0;
     let targetTranslateX = 0;
     let targetTranslateY = 0;
     let isAnimatingZoom = false;
     let animationFrameId = null;
 
-    // --- Panning State ---
+    // --- Interaction States ---
     let isDragging = false;
     let startX, startY;
     let startTranslateX, startTranslateY;
-
-    // --- Right-Click Pattern Spamming State ---
+    // List of small patterns available for right-click spamming
     const patternCycleList = ['glider', 'lwss', 'mwss', 'acorn', 'rPentomino', 'hwss', 'gosperGliderGun', 'pulsar'];
     let currentPatternIndex = 0;
     let isRightClickSpamming = false;
     let spamIntervalId = null;
-    const spamIntervalDelay = 80;
-    let lastSpamX = 0;
+    const spamIntervalDelay = 80; // ms between spam placements
+    let lastSpamX = 0; // Tracks mouse position during spamming
     let lastSpamY = 0;
 
     // --- Web Worker Reference ---
@@ -63,49 +73,45 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==============================================================
     // --- Floating Header Logic (Scroll-Only Version) ---
     // ==============================================================
-    const headerBar = document.getElementById('header-bar');
     let lastScrollTop = 0;
     const headerHideScrollThreshold = 50; // Pixels scrolled down before hiding
-
-    // Central function to update header visibility based ONLY on scroll
     function updateHeaderVisibility() {
         // Ensure headerBar exists before proceeding
         if (!headerBar) return;
 
         let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
 
-        // --- Visibility Logic (Based ONLY on Scroll) ---
+        // Visibility Logic (Based ONLY on Scroll)
         if (scrollTop > lastScrollTop && scrollTop > headerHideScrollThreshold) {
             // Scrolling Down past threshold -> HIDE
             if (!headerBar.classList.contains('header-hidden')) {
                  headerBar.classList.add('header-hidden');
-                 // console.log("Hiding Header (Scroll Down)");
             }
         } else if (scrollTop < lastScrollTop || scrollTop <= headerHideScrollThreshold) {
              // Scrolling Up OR Near the Top (within threshold) -> SHOW
             if (headerBar.classList.contains('header-hidden')) {
                  headerBar.classList.remove('header-hidden');
-                 // console.log("Showing Header (Scroll Up or Top)");
             }
         }
-        // Note: If scrolling stops while down low, it stays hidden until scrolled up.
-
-        // Update last scroll position AFTER determining visibility for this frame
         lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
     }
-
-    // --- Scroll Detection ---
-    // Add listener after the function is defined
-    window.addEventListener('scroll', updateHeaderVisibility, false); // Call central function on scroll
-    // <<< --- END: HEADER LOGIC DEFINITIONS MOVED HERE --- >>>
+    // Add scroll listener
+    window.addEventListener('scroll', updateHeaderVisibility, false);
 
 
-    // --- Patterns (Object containing pattern definitions) ---
-    function addPattern(pattern, offsetX, offsetY) {
-        return pattern.map(p => ({ x: p.x + offsetX, y: p.y + offsetY }));
+    // --- Helper for hardcoded pattern placement ---
+    // NOTE: This addPattern is used below to define initialPattern,
+    // it's DIFFERENT from the 'patterns' object used for spamming.
+    function addPattern(patternCoords, offsetX, offsetY) {
+        // Takes a pattern array [{x:relX, y:relY}, ...] and offsets it
+        return patternCoords.map(p => ({ x: p.x + offsetX, y: p.y + offsetY }));
     }
 
-
+    // ==============================================================
+    // --- Hardcoded Initial Pattern Definitions ---
+    // This object holds the relative coordinates for patterns used
+    // ONLY for building the hardcoded `initialPattern` array below.
+    // ==============================================================
     const patterns = {
         glider: [ { x: 1, y: 0 }, { x: 2, y: 1 }, { x: 0, y: 2 }, { x: 1, y: 2 }, { x: 2, y: 2 } ],
         lwss: [ { x: 1, y: 0 }, { x: 4, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }, { x: 4, y: 2 }, { x: 0, y: 3 }, { x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 } ],
@@ -119,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         blinker_v: [ { x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 } ],
         acorn: [ { x: 1, y: 0 }, { x: 3, y: 1 }, { x: 0, y: 2 }, { x: 1, y: 2 }, { x: 4, y: 2 }, { x: 5, y: 2 }, { x: 6, y: 2 } ],
         beacon: [ { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 3, y: 2 }, { x: 2, y: 3 }, { x: 3, y: 3 } ],
-        pentadecathlon: [ { x: 2, y: 0 }, { x: 7, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 8, y: 1 }, { x: 9, y: 1 }, { x: 2, y: 2 }, { x: 7, y: 2 } ], // Corrected Pentadecathlon
+        pentadecathlon: [ { x: 2, y: 0 }, { x: 7, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 8, y: 1 }, { x: 9, y: 1 }, { x: 2, y: 2 }, { x: 7, y: 2 } ],
         toad: [ { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 } ],
         hwss: [{ x: 2, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }, { x: 0, y: 2 }, { x: 6, y: 2 }, { x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 3 }, { x: 5, y: 3 } ],
         mwss: [ { x: 2, y: 0 }, { x: 3, y: 0 }, { x: 0, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 }, { x: 0, y: 2 }, { x: 5, y: 2 }, { x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 3 } ],
@@ -127,98 +133,18 @@ document.addEventListener('DOMContentLoaded', () => {
         lobster: [ {x:6, y:0}, {x:11, y:0}, {x:5, y:1}, {x:7, y:1}, {x:10, y:1}, {x:12, y:1}, {x:2, y:2}, {x:5, y:2}, {x:7, y:2}, {x:9, y:2}, {x:11, y:2}, {x:1, y:3}, {x:3, y:3}, {x:7, y:3}, {x:8, y:3}, {x:9, y:3}, {x:13, y:3}, {x:15, y:3}, {x:0, y:4}, {x:3, y:4}, {x:5, y:4}, {x:7, y:4}, {x:9, y:4}, {x:11, y:4}, {x:13, y:4}, {x:16, y:4}, {x:1, y:5}, {x:2, y:5}, {x:3, y:5}, {x:5, y:5}, {x:7, y:5}, {x:9, y:5}, {x:11, y:5}, {x:13, y:5}, {x:14, y:5}, {x:15, y:5}, {x:2, y:6}, {x:4, y:6}, {x:6, y:6}, {x:8, y:6}, {x:10, y:6}, {x:12, y:6}, {x:3, y:7}, {x:5, y:7}, {x:7, y:7}, {x:9, y:7}, {x:11, y:7}, {x:4, y:8}, {x:6, y:8}, {x:8, y:8}, {x:10, y:8}, {x:5, y:9}, {x:7, y:9}, {x:9, y:9}, {x:6, y:10}, {x:8, y:10}, {x:7, y:11}, {x:10, y:12}, {x:11, y:12}, {x:12, y:12}, {x:11, y:13}, {x:11, y:14}, {x:12, y:14}, {x:13, y:14}, {x:10, y:15}, {x:12, y:15}, {x:10, y:16} ]
     };
 
-    // --- Initial Pattern Placement ---
-    // Grid Size is 1600x560 (from 8000x2800 / 5) - Updated calculation
+    // ==============================================================
+    // --- Hardcoded Initial Pattern Placement ---
+    // This array will be combined with the data fetched from JSON later
+    // It uses the _initialPatterns object and addPattern helper defined above.
+    // Grid Size is 1600x560 based on Config
+    // ==============================================================
     let initialPattern = [
-        // Guns
-        ...addPattern(patterns.gosperGliderGun, 10, 10),
-        ...addPattern(patterns.gosperGliderGun, 1550, 10),
-
-        // Pulsars
-        ...addPattern(patterns.pulsar, 80, 20),
-        ...addPattern(patterns.pulsar, 1500, 540), // Near bottom right
-        ...addPattern(patterns.pulsar, 50, 250),   // Left edge mid
-        ...addPattern(patterns.pulsar, 1500, 250), // Right edge mid
-
-        // Spaceships
-        ...addPattern(patterns.lwss, 150, 40), ...addPattern(patterns.lwss, 10, 300),
-        ...addPattern(patterns.lwss, 1580, 250), ...addPattern(patterns.lwss, 800, 550),
-        ...addPattern(patterns.mwss, 100, 50), ...addPattern(patterns.mwss, 1450, 400),
-        ...addPattern(patterns.hwss, 1400, 100), ...addPattern(patterns.hwss, 100, 500),
-
-        // Gliders
-        ...addPattern(patterns.glider, 5, 550), ...addPattern(patterns.glider, 1580, 10),
-        ...addPattern(patterns.glider, 1500, 400), ...addPattern(patterns.glider, 100, 100),
-
-        // Oscillators/Still Lifes
-        ...addPattern(patterns.beacon, 50, 350), ...addPattern(patterns.beacon, 1550, 350),
-        ...addPattern(patterns.pentadecathlon, 1400, 350), ...addPattern(patterns.pentadecathlon, 250, 100), // P15
-        ...addPattern(patterns.block, 50, 5), ...addPattern(patterns.beehive, 70, 5),
-        ...addPattern(patterns.loaf, 50, 540), ...addPattern(patterns.tub, 1550, 5), // Adjusted Y for Loaf
-        ...addPattern(patterns.block, 1565, 5), ...addPattern(patterns.beehive, 1580, 540), // Adjusted Y for Beehive
-
-        // Central Chaos Cluster (Adjusted for 1600x560 center ~800, 280)
-        ...addPattern(patterns.rPentomino, 798, 285), ...addPattern(patterns.rPentomino, 780, 270),
-        ...addPattern(patterns.rPentomino, 815, 300), ...addPattern(patterns.rPentomino, 790, 260),
-        ...addPattern(patterns.rPentomino, 805, 310), ...addPattern(patterns.acorn, 770, 280),
-        ...addPattern(patterns.acorn, 825, 275), ...addPattern(patterns.acorn, 785, 295),
-        ...addPattern(patterns.acorn, 810, 265), ...addPattern(patterns.blinker_v, 790, 280),
-        ...addPattern(patterns.blinker_v, 792, 280), ...addPattern(patterns.toad, 800, 290),
-        ...addPattern(patterns.toad, 806, 290), ...addPattern(patterns.beacon, 775, 260),
-        ...addPattern(patterns.beacon, 820, 310), ...addPattern(patterns.beacon, 795, 250),
-        ...addPattern(patterns.glider, 750, 250), ...addPattern(patterns.glider, 755, 252),
-        ...addPattern(patterns.glider, 845, 250), ...addPattern(patterns.glider, 840, 252),
-        ...addPattern(patterns.glider, 750, 320), ...addPattern(patterns.glider, 755, 318),
-        ...addPattern(patterns.glider, 845, 320), ...addPattern(patterns.glider, 840, 318),
-        ...addPattern(patterns.glider, 770, 285), ...addPattern(patterns.glider, 825, 285),
-        ...addPattern(patterns.lwss, 740, 286), ...addPattern(patterns.lwss, 850, 286),
-        ...addPattern(patterns.mwss, 798, 240), ...addPattern(patterns.hwss, 798, 330),
-        ...addPattern(patterns.block, 785, 265), ...addPattern(patterns.block, 810, 305),
-        ...addPattern(patterns.tub, 795, 275), ...addPattern(patterns.loaf, 815, 255),
-        ...addPattern(patterns.turtle, 1250, 280), ...addPattern(patterns.turtle, 1250, 400), // Turtles
-        ...addPattern(patterns.turtle, 1250, 100),
-        ...addPattern(patterns.lobster, 1000, 200), ...addPattern(patterns.lobster, 1200, 400), // Lobsters
-
-        // Additional Peripheral Spaceship Fleet
-        ...addPattern(patterns.lwss, 200, 5), ...addPattern(patterns.lwss, 415, 5),
-        ...addPattern(patterns.mwss, 650, 3), ...addPattern(patterns.lwss, 870, 5),
-        ...addPattern(patterns.hwss, 1100, 2), ...addPattern(patterns.lwss, 1330, 5),
-        ...addPattern(patterns.mwss, 1450, 3),
-        ...addPattern(patterns.lwss, 200, 550), ...addPattern(patterns.mwss, 450, 548), // Adjusted Y
-        ...addPattern(patterns.hwss, 700, 547), ...addPattern(patterns.lwss, 950, 550), // Adjusted Y
-        ...addPattern(patterns.lwss, 1165, 550), ...addPattern(patterns.mwss, 1400, 548), // Adjusted Y
-        ...addPattern(patterns.lwss, 5, 50), ...addPattern(patterns.mwss, 3, 120),
-        ...addPattern(patterns.hwss, 2, 190), ...addPattern(patterns.lwss, 5, 260),
-        ...addPattern(patterns.lwss, 5, 330), ...addPattern(patterns.mwss, 3, 400),
-        ...addPattern(patterns.hwss, 2, 470),
-        ...addPattern(patterns.lwss, 1590, 50), ...addPattern(patterns.mwss, 1588, 120),
-        ...addPattern(patterns.hwss, 1587, 190), ...addPattern(patterns.lwss, 1590, 260),
-        ...addPattern(patterns.lwss, 1590, 330), ...addPattern(patterns.mwss, 1588, 400),
-        ...addPattern(patterns.hwss, 1587, 470),
-        ...addPattern(patterns.lwss, 120, 120), ...addPattern(patterns.mwss, 380, 80),
-        ...addPattern(patterns.hwss, 620, 150), ...addPattern(patterns.lwss, 980, 280),
-        ...addPattern(patterns.mwss, 1250, 350), ...addPattern(patterns.hwss, 1450, 250),
-        ...addPattern(patterns.lwss, 480, 500), ...addPattern(patterns.mwss, 1120, 500),
-
-        // Mega-Structure (Adjusted position slightly for new grid size)
-        ...addPattern(patterns.pulsar, 380, 280), ...addPattern(patterns.pulsar, 410, 280),
-        ...addPattern(patterns.pulsar, 380, 310), ...addPattern(patterns.pulsar, 410, 310),
-        ...addPattern(patterns.gosperGliderGun, 350, 260), ...addPattern(patterns.gosperGliderGun, 440, 260),
-        ...addPattern(patterns.gosperGliderGun, 440, 340), ...addPattern(patterns.gosperGliderGun, 350, 340),
-        ...addPattern(patterns.hwss, 360, 240), ...addPattern(patterns.hwss, 430, 240),
-        ...addPattern(patterns.hwss, 360, 360), ...addPattern(patterns.hwss, 430, 360),
-        ...addPattern(patterns.rPentomino, 395, 295), ...addPattern(patterns.rPentomino, 405, 305),
-        ...addPattern(patterns.acorn, 370, 300), ...addPattern(patterns.acorn, 430, 300),
-        ...addPattern(patterns.block, 340, 250), ...addPattern(patterns.block, 460, 250),
-        ...addPattern(patterns.block, 340, 350), ...addPattern(patterns.block, 460, 350),
-        ...addPattern(patterns.tub, 350, 290), ...addPattern(patterns.tub, 450, 290),
-        ...addPattern(patterns.tub, 350, 310), ...addPattern(patterns.tub, 450, 310),
+        ...addPattern(patterns.gosperGliderGun, 1400, 200)
     ];
-    // --- End Patterns ---
+    // --- End Hardcoded Patterns ---
 
-
-    // --- Game State Logic (MOVED TO worker.js) ---
-
+    // --- Game Control (Start/Stop via Worker) ---
     /** Starts the simulation by telling the worker */
     function startGame() {
         if (worker) {
@@ -278,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Determine the range of grid cells potentially visible (add buffer of 1 cell)
         const startX = Math.max(0, Math.floor(topLeftWorldX / cellSize) - 1);
         const startY = Math.max(0, Math.floor(topLeftWorldY / cellSize) - 1);
-        // Use calculated gridSizeX/Y for bounds check during drawing loop below
         const endX = Math.min(gridSizeX, Math.ceil(bottomRightWorldX / cellSize) + 1);
         const endY = Math.min(gridSizeY, Math.ceil(bottomRightWorldY / cellSize) + 1);
 
@@ -295,8 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Draw Alive Cells (Using state received from worker) ---
         ctx.fillStyle = cellColor;
         const stateToDraw = currentGameStateForDrawing; // Use the latest state from the worker
+        // Basic validation of the state structure
         if (!Array.isArray(stateToDraw) || stateToDraw.length !== gridSizeY) { // Check row count consistency
-             console.warn("drawBoard called with invalid state height or state not ready, skipping draw.", stateToDraw?.length);
+             // console.warn("drawBoard called with invalid state height or state not ready.", stateToDraw?.length);
              ctx.restore(); // Ensure context is restored even if nothing to draw
              return; // Don't attempt to draw if the state isn't ready or valid height
         }
@@ -328,25 +254,21 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.restore(); // Restore context to state before translate/scale
     }
 
-
     // ==============================================================
-    // --- View State and Clamping ---
+    // --- View State Clamping and Animation ---
     // ==============================================================
 
     /** Utility to clamp a value between a min and max */
     function clamp(value, min, max) {
-        // Ensure min is actually less than or equal to max before clamping
-        if (min > max) {
-             return Math.max(min, Math.min(value, max)); // Standard clamp logic handles this case
-        }
+        // Basic clamp function
         return Math.max(min, Math.min(value, max));
     }
-
 
     /**
      * Calculates the minimum allowed zoom level to FIT the entire grid within the viewport,
      * and clamps the target zoom and translation. When at minimum zoom, if the grid
-     * is smaller than the viewport in one dimension, it centers it, preventing panning.
+     * is smaller than the viewport in one dimension, it centers it, preventing panning
+     * in that dimension.
      * @param {number} targetZ - The desired target zoom level.
      * @param {number} targetX - The desired target translation X.
      * @param {number} targetY - The desired target translation Y.
@@ -358,32 +280,39 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Calculate Minimum Zoom required to FIT the entire grid
         const minZoomX = viewW / logicalGridWidth;
         const minZoomY = viewH / logicalGridHeight;
-        const minAllowedZoom = Math.min(minZoomX, minZoomY); // Ensures "Fit"
+        // Use the smaller zoom factor to ensure the whole grid fits
+        const minAllowedZoom = Math.min(minZoomX, minZoomY);
 
-        // 2. Clamp Target Zoom
+        // 2. Clamp Target Zoom between min allowed and user max
         const clampedZoom = clamp(targetZ, minAllowedZoom, maxZoomAllowedUser);
 
-        // 3. Calculate Scaled Dimensions
+        // 3. Calculate Scaled Grid Dimensions at the clamped zoom level
         const scaledGridWidth = logicalGridWidth * clampedZoom;
         const scaledGridHeight = logicalGridHeight * clampedZoom;
 
-        // 4. Calculate Translation Bounds
+        // 4. Calculate Translation Bounds (where the edges of the grid can be)
+        // Max translation is 0 (top-left corner aligned with viewport top-left)
         const maxTranslateX = 0;
         const maxTranslateY = 0;
+        // Min translation positions the bottom-right corner at the viewport bottom-right
         const minTranslateX = viewW - scaledGridWidth;
         const minTranslateY = viewH - scaledGridHeight;
 
         // 5. Clamp or Center Target Translation
         let finalX, finalY;
+        // If grid is narrower than view (at current zoom), center it horizontally.
+        // Otherwise, clamp the translation so grid edges don't go past viewport edges.
         if (scaledGridWidth < viewW) {
-            finalX = (viewW - scaledGridWidth) / 2; // Center H
+            finalX = (viewW - scaledGridWidth) / 2; // Center horizontally
         } else {
-            finalX = clamp(targetX, minTranslateX, maxTranslateX);
+            finalX = clamp(targetX, minTranslateX, maxTranslateX); // Clamp pan X
         }
+        // If grid is shorter than view (at current zoom), center it vertically.
+        // Otherwise, clamp the translation.
         if (scaledGridHeight < viewH) {
-            finalY = (viewH - scaledGridHeight) / 2; // Center V
+            finalY = (viewH - scaledGridHeight) / 2; // Center vertically
         } else {
-            finalY = clamp(targetY, minTranslateY, maxTranslateY);
+            finalY = clamp(targetY, minTranslateY, maxTranslateY); // Clamp pan Y
         }
 
         return { zoom: clampedZoom, x: finalX, y: finalY };
@@ -393,9 +322,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Smooth Zoom Animation Loop ---
     /** Interpolates current view state towards target state over multiple frames. */
     function animateZoom() {
+        // Stop if animation flag is turned off elsewhere
         if (!isAnimatingZoom) return;
 
-        // Clamp the TARGETS before interpolation
+        // Clamp the TARGETS before interpolation each frame.
+        // This ensures we animate towards a valid final state even if the
+        // initial target was outside bounds (e.g., zooming too far out).
         const viewW = canvas.clientWidth;
         const viewH = canvas.clientHeight;
         const clampedTarget = clampView(targetZoomLevel, targetTranslateX, targetTranslateY, viewW, viewH);
@@ -403,48 +335,59 @@ document.addEventListener('DOMContentLoaded', () => {
         targetTranslateX = clampedTarget.x;
         targetTranslateY = clampedTarget.y;
 
-        // Interpolate current towards clamped target
+        // Interpolate current view state towards the (clamped) target state
+        // smoothZoomFactor controls how quickly it converges (0 to 1)
         zoomLevel += (targetZoomLevel - zoomLevel) * smoothZoomFactor;
         boardTranslateX += (targetTranslateX - boardTranslateX) * smoothZoomFactor;
         boardTranslateY += (targetTranslateY - boardTranslateY) * smoothZoomFactor;
 
+        // Request a redraw with the new interpolated view state
         requestDraw();
-        // updateHeaderVisibility(); // <<< REMOVED CALL HERE
 
-        // Check stop condition
+        // Check stop condition: are we close enough to the target?
         const zoomDiff = Math.abs(targetZoomLevel - zoomLevel);
         const transXDiff = Math.abs(targetTranslateX - boardTranslateX);
         const transYDiff = Math.abs(targetTranslateY - boardTranslateY);
 
+        // If differences are below thresholds, snap to the final target and stop.
         if (zoomDiff < zoomThreshold && transXDiff < 0.1 && transYDiff < 0.1) {
-            // Snap to final target
             zoomLevel = targetZoomLevel;
             boardTranslateX = targetTranslateX;
             boardTranslateY = targetTranslateY;
-            requestDraw();
-            isAnimatingZoom = false;
-            animationFrameId = null;
-            // updateHeaderVisibility(); // <<< REMOVED CALL HERE (after snapping)
+            requestDraw(); // Final draw at the exact target position
+            isAnimatingZoom = false; // Turn off animation flag
+            animationFrameId = null; // Clear animation frame ID
         } else {
+            // Otherwise, continue the animation on the next available frame
             animationFrameId = requestAnimationFrame(animateZoom);
         }
     }
 
+    // ==============================================================
+    // --- Spam Pattern Placement Function ---
+    // This function uses the 'patterns' object defined in Part 2
+    // ==============================================================
 
-    // --- Spam Pattern Placement (Sends message to worker) ---
     /**
-     * Calculates the target cells for the selected pattern at the last mouse position
-     * and sends a message to the worker to update its state.
+     * Calculates the target cells for the selected spam pattern at the last mouse position
+     * and sends a message to the worker to update its state (make cells alive).
      */
     function placeSpamPattern() {
-        if (patternCycleList.length === 0 || !worker) return;
+        console.log("DEBUG: placeSpamPattern function entered"); // <<< ADD LOG
 
-        const patternKey = patternCycleList[currentPatternIndex];
-        const patternCoords = patterns[patternKey];
-        if (!patternCoords) {
-             console.warn(`Spam: Pattern key "${patternKey}" not found.`);
+        if (patternCycleList.length === 0 || !worker || currentPatternIndex < 0){
+             console.log("DEBUG: placeSpamPattern returning early (no list, worker, or index). Worker:", worker); // <<< ADD LOG
              return;
         }
+
+        const patternKey = patternCycleList[currentPatternIndex];
+        // Assumes 'patterns' object is defined correctly in Part 2
+        const patternCoords = patterns[patternKey];
+        if (!patternCoords) {
+             console.warn(`DEBUG: Spam: Pattern key "${patternKey}" not found in spam definitions (Part 2).`);
+             return;
+        }
+        console.log("DEBUG: Found pattern coords for", patternKey); // <<< ADD LOG
 
         const worldX = (lastSpamX - boardTranslateX) / zoomLevel;
         const worldY = (lastSpamY - boardTranslateY) / zoomLevel;
@@ -457,259 +400,407 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetGridY = clickGridY + point.y;
             const wrappedX = (targetGridX % gridSizeX + gridSizeX) % gridSizeX;
             const wrappedY = (targetGridY % gridSizeY + gridSizeY) % gridSizeY;
-
             if (wrappedY >= 0 && wrappedY < gridSizeY && wrappedX >= 0 && wrappedX < gridSizeX) {
                  cellsToUpdate.push({ x: wrappedX, y: wrappedY, alive: true });
             }
         });
+        console.log("DEBUG: Cells calculated:", cellsToUpdate.length > 0 ? cellsToUpdate : "None"); // <<< ADD LOG
 
         if (cellsToUpdate.length > 0) {
+             console.log("DEBUG: Posting setCells message to worker"); // <<< ADD LOG
              worker.postMessage({ type: 'setCells', cells: cellsToUpdate });
+        } else {
+             console.log("DEBUG: No cells to update, not posting message."); // <<< ADD LOG
         }
     }
 
-    // CONTINUATION OF PART 4...
-
     // ==============================================================
-    // --- Mouse Interaction Listeners (Panning and Spamming) ---
+    // --- Mouse Interaction Listeners (Panning, Zooming, Spamming) ---
     // ==============================================================
 
     // --- Mouse Wheel Listener (Zoom) ---
     container.addEventListener('wheel', (e) => {
-        e.preventDefault();
+        e.preventDefault(); // Prevent default page scrolling behavior
 
-        // --- Stop any existing animation frame ---
+        // Stop any existing zoom animation immediately if user scrolls again
         if (isAnimatingZoom) {
              cancelAnimationFrame(animationFrameId);
              isAnimatingZoom = false; // Reset flag
         }
 
-        // Get mouse position relative to the container
+        // Get mouse position relative to the container element
         const rect = container.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // Calculate world coordinates under mouse
+        // Calculate world coordinates under mouse BEFORE zoom changes
         const worldX = (mouseX - boardTranslateX) / zoomLevel;
         const worldY = (mouseY - boardTranslateY) / zoomLevel;
 
-        // Calculate potential new target zoom level
+        // Determine zoom direction and calculate potential new target zoom level
         let potentialTargetZoom = targetZoomLevel * (e.deltaY < 0 ? zoomSensitivity : 1 / zoomSensitivity);
 
-        // Calculate the translation that *would* keep the world point under the mouse
+        // Calculate the translation adjustment needed to keep the world point (worldX, worldY)
+        // under the mouse cursor (mouseX, mouseY) AFTER the zoom.
         let potentialTargetX = mouseX - worldX * potentialTargetZoom;
         let potentialTargetY = mouseY - worldY * potentialTargetZoom;
 
-        // --- Clamp the entire potential view state ---
+        // Clamp the entire potential view state (zoom and translation) to valid bounds
         const viewW = canvas.clientWidth;
         const viewH = canvas.clientHeight;
         const clamped = clampView(potentialTargetZoom, potentialTargetX, potentialTargetY, viewW, viewH);
 
-        // --- ALWAYS Update the actual targets ---
+        // Update the animation target values
         targetZoomLevel = clamped.zoom;
         targetTranslateX = clamped.x;
         targetTranslateY = clamped.y;
 
-        // updateHeaderVisibility(); // <<< REMOVED CALL HERE
-
-        // --- ALWAYS Start (or ensure) the animation loop is running ---
+        // Ensure the animation loop is running to smoothly transition to the target
         if (!isAnimatingZoom) {
             isAnimatingZoom = true;
             animationFrameId = requestAnimationFrame(animateZoom);
         }
 
-    }, { passive: false });
+    }, { passive: false }); // passive: false is required to allow preventDefault()
 
+        // --- Panning & Spamming (Mouse Button Down) Logic ---
+        container.addEventListener('mousedown', (e) => { // Single listener start
 
-    // --- Panning & Spamming (Mouse Drag / Hold) Logic ---
-    container.addEventListener('mousedown', (e) => {
-        // --- Left Click: Start Panning ---
-        if (e.button === 0) {
-             if (isAnimatingZoom) { // Stop zoom animation
-                 cancelAnimationFrame(animationFrameId);
-                 isAnimatingZoom = false;
-                 // Snap view to target state
-                 const viewW = canvas.clientWidth; const viewH = canvas.clientHeight;
-                 const clampedSnap = clampView(targetZoomLevel, targetTranslateX, targetTranslateY, viewW, viewH);
-                 zoomLevel = clampedSnap.zoom; boardTranslateX = clampedSnap.x; boardTranslateY = clampedSnap.y;
-                 // updateHeaderVisibility(); // <<< REMOVED CALL HERE (after snapping)
-                 requestDraw();
-             }
-            isDragging = true;
-            startX = e.clientX; startY = e.clientY;
-            startTranslateX = boardTranslateX; startTranslateY = boardTranslateY;
-            container.classList.add('dragging');
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
-            e.preventDefault();
-        }
-        // --- Right Click: Start Spamming ---
-        else if (e.button === 2) {
-            e.preventDefault();
-            if (spamIntervalId) clearInterval(spamIntervalId);
-
-            isRightClickSpamming = true;
-            currentPatternIndex = (currentPatternIndex + 1) % patternCycleList.length; // Cycle first
-            console.log(`Main: Right-click started. Next pattern: ${patternCycleList[currentPatternIndex]}`);
-
-            const rect = canvas.getBoundingClientRect();
-            lastSpamX = e.clientX - rect.left;
-            lastSpamY = e.clientY - rect.top;
-
-            placeSpamPattern(); // Place first one immediately
-
-            console.log(`Main: Starting spam interval for ${patternCycleList[currentPatternIndex]}`);
-            spamIntervalId = setInterval(placeSpamPattern, spamIntervalDelay);
-
-             document.addEventListener('mousemove', onMouseMove);
-             document.addEventListener('mouseup', onMouseUp);
-        }
-    });
-
+            // --- Left Click: Start Panning ---
+            if (e.button === 0) { // Check for left mouse button (button index 0)
+                 if (isAnimatingZoom) { // Stop any ongoing zoom animation before panning
+                     cancelAnimationFrame(animationFrameId);
+                     isAnimatingZoom = false;
+                     // Snap view to the animation's target state immediately
+                     const viewW = canvas.clientWidth; const viewH = canvas.clientHeight;
+                     const clampedSnap = clampView(targetZoomLevel, targetTranslateX, targetTranslateY, viewW, viewH);
+                     zoomLevel = clampedSnap.zoom; boardTranslateX = clampedSnap.x; boardTranslateY = clampedSnap.y;
+                     updateHeaderVisibility(); // Re-check header visibility after snapping view state
+                     requestDraw(); // Draw the snapped state
+                 }
+                isDragging = true; // Set the flag indicating panning has started
+                startX = e.clientX; startY = e.clientY; // Record the starting screen coordinates of the mouse
+                startTranslateX = boardTranslateX; startTranslateY = boardTranslateY; // Record the board's translation at the start of the drag
+                container.classList.add('dragging'); // Add a CSS class for visual feedback (e.g., change cursor)
+    
+                // CRITICAL: Add move and up listeners to the *document* so they work even if the mouse leaves the container
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                e.preventDefault(); // Prevent default browser actions like text selection during drag
+            } // End of left click logic
+    
+            // --- Right Click: Start Spamming ---
+            else if (e.button === 2) { // Check for right mouse button (button index 2)
+                e.preventDefault(); // IMPORTANT: Prevent the default context menu
+                console.log("DEBUG: Right Mouse Down Fired");
+    
+                if (!worker) { // Ensure the worker is ready before trying to interact
+                    console.warn("DEBUG: Right-click ignored: Worker not ready yet.");
+                    return; // Exit the handler if worker isn't available
+                }
+                console.log("DEBUG: Worker seems ready:", worker);
+    
+                // Clear any existing spam interval if one was somehow leftover (safety check)
+                if (spamIntervalId) clearInterval(spamIntervalId);
+    
+                isRightClickSpamming = true; // Set the flag indicating spamming has started
+                currentPatternIndex = (currentPatternIndex + 1) % patternCycleList.length; // Cycle to the next pattern in the list
+                console.log(`DEBUG: Starting Spam. Pattern: ${patternCycleList[currentPatternIndex]}`);
+    
+                // Get the initial mouse position relative to the canvas for the first placement
+                const rect = canvas.getBoundingClientRect();
+                lastSpamX = e.clientX - rect.left;
+                lastSpamY = e.clientY - rect.top;
+    
+                console.log("DEBUG: Calling placeSpamPattern initially");
+                placeSpamPattern(); // Place the first pattern immediately upon right-click
+    
+                console.log("DEBUG: Starting spam interval");
+                // Start the interval timer to repeatedly call placeSpamPattern
+                spamIntervalId = setInterval(placeSpamPattern, spamIntervalDelay);
+    
+                 // CRITICAL: Add move and up listeners to the *document* for spamming as well
+                 document.addEventListener('mousemove', onMouseMove);
+                 document.addEventListener('mouseup', onMouseUp);
+            } // End of right click logic
+    
+        }); // Single listener end
+    // --- Mouse Move Handler (for Panning and Spamming Position Update) ---
     function onMouseMove(e) {
         // --- Panning Update ---
         if (isDragging) {
-            e.preventDefault();
-            const dx = e.clientX - startX; const dy = e.clientY - startY;
-            let potentialX = startTranslateX + dx; let potentialY = startTranslateY + dy;
+            e.preventDefault(); // Good practice during drag operations
+            // Calculate change in screen coordinates from the start of the drag
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            // Calculate the new potential translation based on the starting translation and delta
+            let potentialX = startTranslateX + dx;
+            let potentialY = startTranslateY + dy;
+
+            // Clamp the view based on the new potential translation (using current zoom level)
             const viewW = canvas.clientWidth; const viewH = canvas.clientHeight;
             const clamped = clampView(zoomLevel, potentialX, potentialY, viewW, viewH);
-            boardTranslateX = clamped.x; boardTranslateY = clamped.y;
-            targetTranslateX = boardTranslateX; targetTranslateY = boardTranslateY;
-            // updateHeaderVisibility(); // <<< REMOVED CALL HERE
-            requestDraw();
+
+            // Update the actual board translation directly (no animation for panning)
+            boardTranslateX = clamped.x;
+            boardTranslateY = clamped.y;
+            // Also update the animation targets to match the current state,
+            // preventing a jump if a zoom starts immediately after panning stops.
+            targetTranslateX = boardTranslateX;
+            targetTranslateY = boardTranslateY;
+
+            requestDraw(); // Redraw the board at the new panned position
         }
         // --- Spamming Position Update ---
         else if (isRightClickSpamming) {
+             // Continuously update the last known mouse position relative to the canvas.
+             // The placeSpamPattern function (called by the interval) will use these coords.
              const rect = canvas.getBoundingClientRect();
              lastSpamX = e.clientX - rect.left;
              lastSpamY = e.clientY - rect.top;
         }
     }
 
+    // --- Mouse Button Release Handler ---
     function onMouseUp(e) {
         // --- Stop Panning ---
+        // Check if dragging was active and the button released was the left button
         if (isDragging && e.button === 0) {
-            isDragging = false;
-            container.classList.remove('dragging');
+            isDragging = false; // Turn off dragging state
+            container.classList.remove('dragging'); // Restore default cursor style
+            // Remove the document-level listeners added on mousedown
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
              console.log("Main: Panning stopped.");
         }
         // --- Stop Spamming ---
+        // Check if spamming was active and the button released was the right button
         else if (isRightClickSpamming && e.button === 2) {
-            isRightClickSpamming = false;
+            isRightClickSpamming = false; // Turn off spamming state
+            // Clear the interval timer
             if (spamIntervalId) {
                 clearInterval(spamIntervalId);
                 console.log("Main: Spam interval cleared:", spamIntervalId);
                 spamIntervalId = null;
             }
+            // Remove the document-level listeners added on mousedown
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
         }
     }
 
-    // Context Menu: ONLY prevent default browser behavior. Logic is in mousedown.
+    // --- Context Menu Prevention ---
+    // Prevent the default browser context menu ONLY when right-clicking inside the container
     container.addEventListener('contextmenu', e => {
         e.preventDefault();
     });
 
-
-    // ==============================================================
+        // ==============================================================
     // --- Initialization and Resize Handling ---
     // ==============================================================
-    function initialize() {
-        // --- Create and Initialize Worker ---
+
+    /** Initializes the worker, loads patterns, sets up view, and starts game */
+    async function initialize() { // Marked async to use await for fetch
+
+        // --- Load ADDITIONAL Pattern Data from JSON Files ---
+        let allFetchedPatterns = []; // Array to hold coordinates from ALL fetched JSON files
+
+        console.log("Main: Starting to load additional patterns from JSON files...");
+
+        // Create an array of promises, one for each file loading operation
+        const loadPromises = patternFilesToLoad.map(async (fileInfo) => {
+            // Check if fileInfo and fileInfo.file are valid before proceeding
+            if (!fileInfo || typeof fileInfo.file !== 'string' || typeof fileInfo.offsetX !== 'number' || typeof fileInfo.offsetY !== 'number') {
+                console.warn("Main: Invalid entry in patternFilesToLoad, skipping:", fileInfo);
+                return []; // Skip this invalid entry
+            }
+
+            try {
+                console.log(`Main: Fetching additional pattern from ${fileInfo.file}...`);
+                const response = await fetch(fileInfo.file); // Fetch the specific file
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status} while fetching ${fileInfo.file}`);
+                }
+
+                const loadedJsonPattern = await response.json(); // Parse its JSON content
+
+                if (!Array.isArray(loadedJsonPattern)) {
+                     throw new Error(`Fetched data from ${fileInfo.file} is not a valid JSON array.`);
+                }
+                console.log(`Main: Successfully loaded ${loadedJsonPattern.length} cells from ${fileInfo.file}.`);
+
+                // Apply the specific offsets for THIS file
+                console.log(`Main: Applying offset (${fileInfo.offsetX}, ${fileInfo.offsetY}) to pattern from ${fileInfo.file}.`);
+                const offsetJsonPattern = loadedJsonPattern.map(cell => ({
+                    x: cell.x + fileInfo.offsetX,
+                    y: cell.y + fileInfo.offsetY
+                }));
+
+                // Return the processed (offset) pattern data for this file
+                return offsetJsonPattern;
+
+            } catch (error) {
+                // Handle errors for a specific file
+                console.error(`Main: Failed to load or process ${fileInfo.file}:`, error);
+                alert(`Error loading additional pattern from ${fileInfo.file}.\nPlease ensure the file exists and is valid JSON.\nSkipping this file.\n\nDetails: ${error.message}`);
+                return []; // Return an empty array for this file on error, so Promise.all doesn't fail entirely
+            }
+        }); // End of .map() which creates the promises
+
+        // --- Wait for all fetch operations to complete ---
+        try {
+            // Promise.all waits for every promise in loadPromises to resolve
+            const results = await Promise.all(loadPromises);
+            // Flatten the array of arrays into a single array of pattern coordinates
+            allFetchedPatterns = results.flat();
+            console.log(`Main: Finished loading all JSON files. Total cells loaded from JSON: ${allFetchedPatterns.length}`);
+        } catch (error) {
+            // Catch errors in Promise.all itself (less likely with individual catches)
+            console.error("Main: An unexpected error occurred while waiting for patterns to load:", error);
+            alert("A critical error occurred while loading pattern files. Initialization may be incomplete.");
+            // Depending on severity, you might want to return here
+        }
+        // --- End of loading JSON patterns ---
+
+
+        // --- Combine Hardcoded and ALL Loaded Patterns ---
+        // Ensure the hardcoded 'initialPattern' array (defined elsewhere) exists
+        if (typeof initialPattern === 'undefined' || !Array.isArray(initialPattern)) {
+             console.error("Main: The hardcoded 'initialPattern' array is missing or not an array! Cannot proceed.");
+             alert("Error: The hardcoded initial pattern is missing. Please check the script.");
+             return; // Stop initialization
+        }
+
+        // Concatenate the hardcoded array with the array containing cells from ALL loaded JSON files
+        const combinedInitialPattern = initialPattern.concat(allFetchedPatterns); // Use allFetchedPatterns here
+        console.log(`Main: Total initial live cells (hardcoded + all JSON): ${combinedInitialPattern.length}`);
+
+
+        // --- Create and Initialize Worker (using the combined pattern) ---
         console.log("Main: Initializing Worker...");
         try {
-            worker = new Worker('worker.js');
+            worker = new Worker('worker.js'); // Create the worker
 
             // Handle messages received FROM the worker
             worker.onmessage = function(e) {
-                // Check for the 'stateChanges' message type from sparse worker
-                if (e.data && e.data.type === 'stateChanges') { // <<< LISTENING FOR CORRECT TYPE
-                    if (Array.isArray(e.data.changes)) {
-                         // Ensure the drawing state array exists and has correct dimensions
-                         if (!Array.isArray(currentGameStateForDrawing) || currentGameStateForDrawing.length !== gridSizeY ||
-                             (gridSizeY > 0 && (!Array.isArray(currentGameStateForDrawing[0]) || currentGameStateForDrawing[0].length !== gridSizeX)))
-                         {
-                              console.error("Main: drawing state is invalid before applying changes! Re-initializing (may cause flicker).");
-                              currentGameStateForDrawing = Array(gridSizeY).fill(null).map(() => Array(gridSizeX).fill(false));
-                         }
-                         // Apply each change from the 'changes' array
-                         e.data.changes.forEach(change => {
-                             if (change && typeof change === 'object' && /*...validation...*/ change.y >= 0 && change.y < gridSizeY && change.x >= 0 && change.x < gridSizeX) {
-                                 currentGameStateForDrawing[change.y][change.x] = change.alive;
-                             } else { /* ... warning ... */ }
-                         });
-                         requestDraw();
-                    } else { /* ... warning ... */ }
-                } else { /* ... unknown message log ... */ }
+                // Add basic check for e.data
+                if (!e || !e.data) {
+                    console.warn("Main received empty/invalid message from worker.");
+                    return;
+                }
+                console.log("DEBUG: Main thread received message from worker:", e.data.type || 'Unknown type');
+
+                if (e.data.type === 'stateChanges') {
+                    // Add check for e.data.changes being an array
+                    if (!Array.isArray(e.data.changes)) {
+                        console.warn("stateChanges received, but 'changes' is not an array:", e.data.changes);
+                        return;
+                    }
+                    console.log("DEBUG: Processing stateChanges from worker:", e.data.changes.length, "changes");
+
+                    e.data.changes.forEach(change => {
+                        // Add more robust checking for each change object
+                        if (change && typeof change === 'object' &&
+                            Number.isInteger(change.y) && change.y >= 0 && change.y < gridSizeY &&
+                            Number.isInteger(change.x) && change.x >= 0 && change.x < gridSizeX &&
+                            typeof change.alive === 'boolean')
+                        {
+                            // Check if the row exists before accessing it
+                            if (currentGameStateForDrawing[change.y]) {
+                                currentGameStateForDrawing[change.y][change.x] = change.alive;
+                            } else {
+                                console.warn(`Attempted to access non-existent row ${change.y} in currentGameStateForDrawing.`);
+                            }
+                        } else {
+                            console.warn("Invalid change object received from worker:", change);
+                        }
+                    });
+                    console.log("DEBUG: Requesting draw after stateChanges");
+                    requestDraw(); // Request a redraw after applying changes
+                } else {
+                    console.log("Received other message type from worker:", e.data.type);
+                }
             };
 
+            // Handle errors originating FROM the worker
             worker.onerror = function(error) {
                  console.error('Worker Error:', error.message, error);
                  alert(`Worker Error: ${error.message}\nSimulation may stop.`);
+                 stopGame(); // Attempt to stop if worker errors out
             };
 
-            // --- Generate Initial State locally first ---
-            console.log(`Main: Preparing initial state: ${gridSizeX}x${gridSizeY}`);
+            // --- Prepare Initial Game State using the COMBINED pattern ---
+            console.log(`Main: Preparing initial state for worker: ${gridSizeX}x${gridSizeY}`);
+            // Create a 2D array representing the grid, initially all false (dead)
             const tempInitialState = Array(gridSizeY).fill(null).map(() => Array(gridSizeX).fill(false));
-            initialPattern.forEach(({ x, y }) => {
+
+            // Populate the initial state array based on the COMBINED JSON and hardcoded data
+            combinedInitialPattern.forEach(({ x, y }) => {
+                // Apply toroidal wrapping to the loaded coordinates
                 const wrappedX = (x % gridSizeX + gridSizeX) % gridSizeX;
                 const wrappedY = (y % gridSizeY + gridSizeY) % gridSizeY;
+                // Check bounds before assignment
                 if (wrappedY >= 0 && wrappedY < gridSizeY && wrappedX >= 0 && wrappedX < gridSizeX) {
-                    tempInitialState[wrappedY][wrappedX] = true;
+                    // Ensure the target row exists (it should, based on array creation above)
+                    if (tempInitialState[wrappedY]) {
+                         tempInitialState[wrappedY][wrappedX] = true; // Set the cell to alive
+                    } else {
+                        // This case should ideally not happen if tempInitialState is created correctly
+                        console.warn(`Attempted write to non-existent row ${wrappedY} during initial state creation.`);
+                    }
+                } else {
+                     // This case should also not happen if gridSizeX/Y are correct
+                     console.warn(`Coordinates (${x}, ${y}) wrapped outside bounds (${wrappedX}, ${wrappedY}) during initial state creation.`);
                 }
             });
+            // Set the main thread's drawing state immediately as well
             currentGameStateForDrawing = tempInitialState;
-            console.log("Main: Initial state prepared.");
+            console.log("Main: Initial state prepared using combined patterns.");
 
-            // --- Send Initial Data TO Worker ---
+            // --- Send Initial Configuration and State TO Worker ---
             console.log("Main: Sending initial data to worker...");
             worker.postMessage({
                 type: 'init',
                 config: { gridSizeX: gridSizeX, gridSizeY: gridSizeY, gameSpeed: gameSpeed },
-                initialGameState: currentGameStateForDrawing
+                initialGameState: currentGameStateForDrawing // Send the state we just built
             });
             console.log("Main: Initial 'init' message sent.");
 
             // --- Initialize Viewport ---
-            const viewW = container.clientWidth;
-            const viewH = container.clientHeight;
-            canvas.style.width = `${viewW}px`;
-            canvas.style.height = `${viewH}px`;
+            const viewW = container.clientWidth; const viewH = container.clientHeight;
+            // Set initial canvas CSS size (internal resolution set in drawBoard)
+            canvas.style.width = `${viewW}px`; canvas.style.height = `${viewH}px`;
+            // Calculate initial translation to center the view (or clamp if zoomed out)
             let initialX = (viewW - logicalGridWidth * initialZoomFactor) / 2;
             let initialY = (viewH - logicalGridHeight * initialZoomFactor) / 2;
+            // Clamp the initial view state
             const clampedInitial = clampView(initialZoomFactor, initialX, initialY, viewW, viewH);
-            zoomLevel = clampedInitial.zoom;
-            boardTranslateX = clampedInitial.x;
-            boardTranslateY = clampedInitial.y;
-            targetZoomLevel = clampedInitial.zoom;
-            targetTranslateX = clampedInitial.x;
-            targetTranslateY = clampedInitial.y;
+            // Set both current and target view states
+            zoomLevel = clampedInitial.zoom; boardTranslateX = clampedInitial.x; boardTranslateY = clampedInitial.y;
+            targetZoomLevel = clampedInitial.zoom; targetTranslateX = clampedInitial.x; targetTranslateY = clampedInitial.y;
 
-            // updateHeaderVisibility(); // <<< REMOVED CALL HERE
-
-            // --- Log Initial State ---
+            // Log initial setup details
             console.log(`Main: Grid Size: ${gridSizeX}x${gridSizeY}`);
             console.log(`Main: Canvas Initialized. Viewport: ${viewW}x${viewH}`);
             console.log(`Main: Logical Board Size: ${logicalGridWidth}x${logicalGridHeight}`);
             console.log(`Main: Clamped Initial Zoom: ${zoomLevel.toFixed(3)}`);
             console.log(`Main: Clamped Initial Translate: (${boardTranslateX.toFixed(1)}, ${boardTranslateY.toFixed(1)})`);
 
-            // Initial draw
+            // Initial draw using the combined pattern
             requestDraw();
-            // Tell worker to start simulation
+            // Tell worker to start the simulation loop
             startGame();
 
-        } catch (err) {
+        } catch (err) { // Catch errors during worker setup/init message posting
             console.error("Failed to initialize worker or simulation:", err);
             alert("Error initializing simulation. Check console for details.");
         }
-    }
+    } // <<< END OF initialize FUNCTION
+
 
     // --- Window Resize Handling ---
+    // ... (Keep the existing resize handler as it is) ...
     let resizeTimeout;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
@@ -719,25 +810,20 @@ document.addEventListener('DOMContentLoaded', () => {
              const viewH = container.clientHeight;
              canvas.style.width = `${viewW}px`;
              canvas.style.height = `${viewH}px`;
-
              const clampedCurrent = clampView(targetZoomLevel, targetTranslateX, targetTranslateY, viewW, viewH);
              targetZoomLevel = clampedCurrent.zoom;
              targetTranslateX = clampedCurrent.x;
              targetTranslateY = clampedCurrent.y;
-
-             // updateHeaderVisibility(); // <<< REMOVED CALL HERE
-
              if (!isAnimatingZoom) {
                  zoomLevel = targetZoomLevel;
                  boardTranslateX = targetTranslateX;
                  boardTranslateY = targetTranslateY;
              }
-
              requestDraw();
-        }, 250);
+        }, 150);
     });
 
     // --- Run Initialization ---
-    initialize();
+    initialize(); // Call the async initialization function
 
-}); // End DOMContentLoaded
+}); // End DOMContentLoaded wrapper
