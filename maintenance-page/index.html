@@ -1,26 +1,155 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Site Under Maintenance</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      text-align: center;
-      padding: 50px;
-    }
-    h1 {
-      color: #ff0000;
-    }
-    p {
-      font-size: 1.2em;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Updated Title -->
+    <title>System Maintenance - Stand By</title>
+    <!-- Using Google Fonts for a spacey feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #00a8ff; /* Bright blue like LEDs or space views */
+            --secondary-color: #ffcc00; /* Accent color - gold foil / warning */
+            --text-color: #e0e0e0; /* Light grey/white text */
+            --bg-color: #1a1a2e; /* Deep space blue/purple */
+            --container-bg: rgba(20, 20, 40, 0.85); /* Slightly less transparent dark container */
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            /* Sharper, slower animated star background */
+            background-image:
+                /* Small sharp stars */
+                radial-gradient(white 1px, transparent 1px),
+                radial-gradient(white 1px, transparent 1px),
+                /* Slightly larger faint stars */
+                radial-gradient(rgba(255,255,255,.4) 1px, transparent 1px),
+                radial-gradient(rgba(255,255,255,.2) 1px, transparent 1px);
+            background-size:
+                /* Density and spacing of stars */
+                500px 500px, /* Layer 1 */
+                300px 300px, /* Layer 2 */
+                200px 200px, /* Layer 3 */
+                150px 150px; /* Layer 4 */
+            background-position:
+                /* Initial positions */
+                0 0, 40px 60px, 130px 270px, 70px 100px;
+            /* Significantly slower animation */
+            animation: stars 1000s linear infinite; /* Slowed down from 200s */
+        }
+
+        @keyframes stars {
+            from { background-position: 0 0, 40px 60px, 130px 270px, 70px 100px; }
+            /* Adjust the 'to' values if needed to control drift direction/distance over the long duration */
+            to { background-position: -10000px 5000px, -10000px 12000px, -10000px 9000px, -10000px 6000px; }
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            padding: 30px 40px; /* Adjusted padding */
+            border-radius: 10px;
+            max-width: 600px; /* Slightly narrower */
+            box-shadow: 0 0 25px rgba(0, 168, 255, 0.3);
+            border: 1px solid rgba(0, 168, 255, 0.4);
+        }
+
+        /* Logo Styling */
+        img.logo {
+            max-width: 120px; /* Adjust size as needed */
+            height: auto;     /* Maintain aspect ratio */
+            margin-bottom: 25px; /* Space below logo */
+            /* Optional: Add a subtle glow if logo is light on dark bg */
+            /* filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5)); */
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary-color);
+            font-size: 2.0em; /* Slightly smaller to accommodate logo */
+            margin-bottom: 0.7em; /* Added a bit more space below H1 */
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        p {
+            font-size: 1.05em; /* Slightly adjusted font size */
+            line-height: 1.7;
+            margin-bottom: 1.5em;
+            font-weight: 300;
+        }
+
+        .status {
+            font-weight: 400;
+            color: var(--secondary-color);
+            border: 1px dashed var(--secondary-color);
+            padding: 10px 15px;
+            margin-top: 15px;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .comms-link a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 400;
+            border-bottom: 1px dotted var(--primary-color);
+            transition: color 0.3s ease, border-bottom 0.3s ease;
+        }
+
+        .comms-link a:hover {
+            color: var(--secondary-color);
+            border-bottom: 1px dotted var(--secondary-color);
+        }
+
+        .footer-quote {
+            margin-top: 25px;
+            font-size: 0.85em; /* Slightly smaller quote */
+            font-style: italic;
+            color: rgba(224, 224, 224, 0.7);
+        }
+
+    </style>
 </head>
 <body>
-  <h1>Site Under Maintenance</h1>
-  <p>We are currently performing maintenance. Please check back soon.</p>
+    <div class="container">
+
+        <!-- Your Logo from previous code -->
+        <img src="Valis_World_V1.png" alt="Vali's World Logo" class="logo">
+
+        <!-- *** UPDATED HEADLINE *** -->
+        <h1>System Maintenance Underway</h1>
+
+        <p>
+            Performing essential upgrades and calibration on ground control systems. We're fine-tuning the hardware and software to ensure robust performance – just like prepping for a stratospheric launch!
+        </p>
+
+        <!-- *** UPDATED STATUS *** -->
+        <div class="status">
+            STATUS: MAINTENANCE IN PROGRESS <br>
+            ETA: Signal re-acquisition shortly...
+        </div>
+
+        <!-- Your GitHub Link from previous code -->
+        <p class="comms-link">
+            Check <a href="https://github.com/valis-world/valis-world.com" target="_blank" rel="noopener noreferrer">project status & code on GitHub</a> for updates.
+        </p>
+
+        <p class="footer-quote">
+            "Strapped to the keyboard and bringing the systems back online from the gravity-assisted workspace."
+        </p>
+    </div>
 </body>
 </html>
