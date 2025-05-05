@@ -1,0 +1,12 @@
+#C RLE pattern horizontally flipped from original JSON/RLE
+#C Should match the right-hand ship in the provided image
+#C Travels towards top-right
+x = 47, y = 47, rule = B3/S23
+17b2o$18b2o$17bo$14bo6bo$7bo7b2o4b2o$5b4o3bo7bobo$5b2o2bo2b2o4bo$3bob
+o4b2o7bo$2bobo4b2obo7bo5b2o$bo2bo6b3o3bo9b2o$7bo2bo2b2o7bo$4b2o8b2o7b
+o6bo$4bo9b2obo7b2o4b2o$13b3o3bo7bobo$11bo2bo2b2o4bo$16b2o7bo$16b2obo
+7bo5b2o$17b3o3bo9b2o$15bo2bo2b2o7bo$20b2o7bo6bo$19b2obo7b2o4b2o$20b3o
+3bo7bobo$19bo2bo2b2o4bo$24b2o7bo$24b2obo7bo5b2o$25b3o3bo9b2o$23bo2bo
+2b2o7bo$28b2o7bo6bo$27b2obo7b2o4b2o$28b3o3bo7bobo$27bo2bo2b2o4bo$32b
+2o7bo$31b2obo7bo$34b3o3bo$34bo2bo2b2o$37b2o$36b2obo$38b3o$38bo2bo$41b
+2o$40b2o$40b2o$35bo3bo$35bob3o$34bo$38b2o$37bo!

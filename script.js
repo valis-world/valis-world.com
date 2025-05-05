@@ -24,7 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
         { file: 'patterns/shuttle_pattern.json', offsetX: 855, offsetY: 185},
         { file: 'patterns/shuttle_pattern.json', offsetX: 710, offsetY: 260},
         { file: 'patterns/shuttle_pattern.json', offsetX: 785, offsetY: 260},
-        { file: 'patterns/shuttle_pattern.json', offsetX: 860, offsetY: 260}
+        { file: 'patterns/shuttle_pattern.json', offsetX: 860, offsetY: 260},
+        { file: 'patterns/big-ship_pattern.json', offsetX: 100, offsetY: 300},
+        { file: 'patterns/big-ship_pattern.json', offsetX: 1300, offsetY: 100},
+        { file: 'patterns/wide-ship_pattern.json', offsetX: 50, offsetY: 30}
         // Add more objects here for more files
     ];
 
