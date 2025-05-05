@@ -18,13 +18,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // *** Path to the ADDITIONAL pattern file to load ***
     // This file's contents will be ADDED to the hardcoded 'initialPattern' below
     const patternFilesToLoad = [
-        { file: 'glider-oszilator_pattern.json', offsetX: 650, offsetY: 130 },
-        { file: 'shuttle_pattern.json', offsetX: 705, offsetY: 185},
-        { file: 'shuttle_pattern.json', offsetX: 780, offsetY: 185},
-        { file: 'shuttle_pattern.json', offsetX: 855, offsetY: 185},
-        { file: 'shuttle_pattern.json', offsetX: 710, offsetY: 260},
-        { file: 'shuttle_pattern.json', offsetX: 785, offsetY: 260},
-        { file: 'shuttle_pattern.json', offsetX: 860, offsetY: 260}
+        { file: 'patterns/glider-oszilator_pattern.json', offsetX: 650, offsetY: 130 },
+        { file: 'patterns/shuttle_pattern.json', offsetX: 705, offsetY: 185},
+        { file: 'patterns/shuttle_pattern.json', offsetX: 780, offsetY: 185},
+        { file: 'patterns/shuttle_pattern.json', offsetX: 855, offsetY: 185},
+        { file: 'patterns/shuttle_pattern.json', offsetX: 710, offsetY: 260},
+        { file: 'patterns/shuttle_pattern.json', offsetX: 785, offsetY: 260},
+        { file: 'patterns/shuttle_pattern.json', offsetX: 860, offsetY: 260}
         // Add more objects here for more files
     ];
 
