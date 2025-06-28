@@ -34,6 +34,30 @@ body {
   display: inline-block; /* Allow other elements inline if needed */
 }
 
+/* --- Pattern Indicator Styles --- */
+#pattern-indicator {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background-color: rgba(20, 20, 20, 0.9);
+  color: white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 170, 255, 0.3);
+}
+
+#pattern-indicator span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+#current-pattern-name {
+  color: #00aaff;
+  font-weight: bold;
+}
 
 #container {
   width: 100vw;

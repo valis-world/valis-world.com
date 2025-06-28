@@ -13,6 +13,12 @@
     <a class="github" href="https://github.com/valis-world" target="_blank"> Git Hub</a>
   </div>
   
+  <!-- Pattern Indicator -->
+  <div id="pattern-indicator">
+    <span>Current Pattern: <span id="current-pattern-name">glider</span></span>
+    <span>(Press SPACE to cycle patterns)</span>
+  </div>
+  
   <!-- Container remains the same -->
   <div id="container">
     <!-- Board div is replaced by a canvas element -->
@@ -34,6 +40,12 @@
     <p>
       Use the mouse wheel while hovering over the black area to zoom in and out (centered on cursor). Click and drag to pan the view.
     </p>
+    <h2>Controls</h2>
+    <p>• Mouse wheel: Zoom in/out (centered on cursor)</p>
+    <p>• Left click + drag: Pan the view</p>
+    <p>• Right click: Place current pattern</p>
+    <p>• Right click + drag: Spam place current pattern</p>
+    <p>• SPACE key: Cycle through available patterns</p>
     <h2>Rules</h2>
     <p>1. Any live cell with fewer than two live neighbors dies.</p>
     <p>2. Any live cell with two or three live neighbors lives on.</p>
