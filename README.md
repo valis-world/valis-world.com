@@ -24,10 +24,9 @@ This implementation of Conway's Game of Life runs the core simulation logic with
     *   **Smooth Animation:** Uses `requestAnimationFrame` for fluid zoom transitions.
 *   **Boundary Clamping:** Prevents zooming out further than fitting the entire grid and stops panning past the grid edges.
 *   **Interactive Pattern Spawning:**
-    *   Right-click cycles through a predefined list of patterns (`glider`, `lwss`, `mwss`, `acorn`, `rPentomino`, `hwss`, `gosperGliderGun`, `pulsar`).
+    *   Right-click places and SPACE cycles through a predefined list of patterns (`glider`, `lwss`, `mwss`, `acorn`, `rPentomino`, `hwss`, `gosperGliderGun`, `pulsar`).
     *   Holding the right mouse button "spams" the currently selected pattern at the cursor location.
 *   **Dense Initial State:** Includes a wide variety of oscillators, spaceships, methuselahs, guns, and complex structures for an active start.
-*   **Dynamic Header Bar:** A translucent header appears when scrolling up near the top of the page (when not zoomed in) and hides when scrolling down or zooming into the simulation.
 *   **Monitoring:** Integrated with Uptime Kuma for basic service availability monitoring.
 
 ## 🛠️ Tech Stack
@@ -39,6 +38,69 @@ This implementation of Conway's Game of Life runs the core simulation logic with
 *   HTML5 Canvas API
 *   **Deployment:** Nginx (configuration included in `nginx-config/`) on Raspberry Pi
 *   **Monitoring:** Uptime Kuma
+
+## 🏛️ Code Architecture Deep Dive
+
+The key to this application's performance is the strict separation of concerns between two main JavaScript files, which run in different browser threads. This architecture allows for a massive, computationally intensive simulation to run smoothly without ever freezing the user interface.
+
+1.  **`script.js` (The Main/UI Thread):** This is the "Control & Render" thread. It is responsible for everything the user sees and interacts with: drawing the grid, handling mouse and keyboard input, and managing the overall application state.
+2.  **`worker.js` (The Background/Worker Thread):** This is the dedicated "Simulation Engine." Its sole purpose is to run the Game of Life simulation logic, freeing the main thread from heavy calculations.
+
+### `script.js` - The Control & Render Thread
+
+This file is organized into several classes, each with a specific responsibility, following Object-Oriented principles.
+
+#### `class GameController`
+This is the central orchestrator or "brain" of the application.
+*   **Role:** It creates instances of all the other manager and handler classes and "wires" them together so they can communicate.
+*   **Key Action:** Its `initialize()` method kicks off the entire application, setting up the renderer, view, input handlers, and starting the Web Worker.
+
+#### `class ViewManager`
+This class acts as the "camera" for the simulation.
+*   **Role:** It manages the state of the viewport, including the current zoom level and pan (translation) offset.
+*   **Core Concept:** It uses a `targetZoomLevel` and `targetTranslate` to create smooth animations. Instead of instantly changing the view, it sets a target and uses `requestAnimationFrame` to interpolate the current view towards the target, frame by frame.
+*   **Key Feature:** The `clampView()` method prevents the user from panning or zooming too far, ensuring the grid is always accessible.
+
+#### `class InputHandler`
+This is the bridge between the user and the application.
+*   **Role:** It centralizes all event listeners (`mousedown`, `mousemove`, `wheel`, `keydown`).
+*   **Function:** It translates raw user input into meaningful commands, such as calling `viewManager.setTargetView()` when the user drags the mouse, or telling the `GameController` to place a new pattern on a right-click.
+
+#### `class PatternManager`
+This class is the "librarian" for all the Game of Life patterns.
+*   **Role:** It loads, stores, and provides the blueprints for patterns like "glider" or "pulsar".
+*   **Implementation:** It contains a small set of hardcoded patterns for quick access and uses an `async` method with `fetch` and `Promise.all` to load larger, more complex patterns from `.json` files at startup.
+
+#### `class BaseRenderer` & Subclasses (`RectRenderer`, `CircleRenderer`)
+This is a textbook example of the **Strategy Pattern**.
+*   **`BaseRenderer` (The Abstract Blueprint):** This class contains all the common rendering logic.
+    *   **Viewport Culling:** Its most important optimization. Instead of trying to draw all 22+ million potential cells, it calculates the small rectangular portion of the grid currently visible in the viewport and only iterates over those cells.
+    *   **High-DPI Support:** It uses `window.devicePixelRatio` to ensure the rendering is crisp on high-resolution displays.
+*   **`RectRenderer` & `CircleRenderer` (The Concrete Strategies):** These classes inherit from `BaseRenderer`. Their only job is to provide a specific implementation for the `drawCells()` method—one draws using `fillRect()`, the other using `arc()`. The `GameController` can swap between these "strategies" at any time.
+
+#### `class GameConfig`
+A simple but vital utility class.
+*   **Role:** It acts as a single source of truth for all static configuration values (e.g., `CELL_SIZE`, `GAME_SPEED`). This prevents "magic numbers" and makes the application easy to tweak.
+
+### `worker.js` - The Simulation Engine
+
+This script is the computational powerhouse. It runs in complete isolation and communicates with `script.js` only through messages.
+
+#### The "Sparse Set" Implementation
+This is the **most critical optimization** in the entire project. A naive approach would use a massive 2D array to store the state of every cell. This would consume a huge amount of memory and be incredibly slow to process.
+*   **The Solution:** Instead, the worker only keeps track of the cells that are **alive**. It does this using a JavaScript `Set`, which provides highly efficient `add`, `delete`, and `has` operations. A cell's coordinate `(x, y)` is stored as a simple string key: `"x,y"`.
+
+#### The `updateGameStateSparse` Algorithm
+This is the engine's core logic, designed to work perfectly with the sparse set.
+1.  **Find Relevant Cells:** The algorithm doesn't check every cell on the grid. It knows that the only cells that can possibly change state are the currently live cells and their immediate neighbors. It iterates through the `liveCells` set and builds a temporary list of these "relevant cells".
+2.  **Count Neighbors:** As it identifies relevant cells, it keeps a count of how many live neighbors each one has in a `Map`.
+3.  **Apply Rules:** Finally, it iterates *only over the small set of relevant cells* and applies the four rules of Conway's Game of Life based on the neighbor count.
+
+#### Efficient Communication: Sending "Deltas"
+When the worker finishes a new generation, it doesn't send the entire new state of all live cells back to the main thread. Instead, it sends a small array containing only the cells that **changed state** (a "delta"). This dramatically reduces the amount of data that needs to be passed between threads, which is another key performance factor.
+
+---
+Together, these two scripts and their internal architectures form a robust system that delegates tasks efficiently, allowing a complex and resource-intensive simulation to run beautifully in a web browser.
 
 ## 🚀 Running Locally
 
