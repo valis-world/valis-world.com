@@ -34,11 +34,11 @@ body {
   display: inline-block; /* Allow other elements inline if needed */
 }
 
-/* --- Pattern Indicator Styles --- */
-#pattern-indicator {
+/* --- Game Controls Styles --- */
+#game-controls {
   position: fixed;
-  top: 80px;
-  right: 20px;
+  top: 530px;
+  right: 10px;
   background-color: rgba(20, 20, 20, 0.9);
   color: white;
   padding: 10px 15px;
@@ -49,12 +49,17 @@ body {
   border: 1px solid rgba(0, 170, 255, 0.3);
 }
 
-#pattern-indicator span {
+#game-controls span {
   display: block;
   margin-bottom: 5px;
 }
 
 #current-pattern-name {
+  color: #00aaff;
+  font-weight: bold;
+}
+
+#current-shape-name {
   color: #00aaff;
   font-weight: bold;
 }

@@ -1,4 +1,4 @@
-// worker.js - Game of Life Simulation Logic - SPARSE IMPLEMENTATION
+// worker.js - Game of Life Simulation Logic - SPARSE IMPLEMENTATIOn
 
 // Use a Set to store live cell coordinates as strings "x,y"
 let liveCells = new Set();
@@ -23,96 +23,81 @@ function parseKey(key) {
 // --- Core Game Logic (Sparse Approach) ---
 
 function updateGameStateSparse() {
-    // console.log(`Worker: updateGameStateSparse called (Gen: ${generationCount})`);
     if (gridSizeX === 0 || gridSizeY === 0) {
          console.error("Worker: updateGameStateSparse called before grid dimensions are set.");
          stopGameLoop(); return;
     }
 
-    const neighborCounts = new Map(); // Map<string, number> storing "x,y" -> count
-    const relevantCells = new Set();  // Set<string> of cells that might change (live cells + their neighbors)
+    const neighborCounts = new Map();
+    const relevantCells = new Set();
 
-    // 1. Iterate through LIVE cells to populate neighbor counts and relevant cells
     for (const key of liveCells) {
         const { x, y } = parseKey(key);
-        relevantCells.add(key); // The live cell itself is relevant
+        relevantCells.add(key);
 
         for (let dy = -1; dy <= 1; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
-                if (dx === 0 && dy === 0) continue; // Skip self
+                if (dx === 0 && dy === 0) continue;
 
                 const nx = x + dx;
                 const ny = y + dy;
-                // Wrap coordinates
                 const wrappedX = (nx % gridSizeX + gridSizeX) % gridSizeX;
                 const wrappedY = (ny % gridSizeY + gridSizeY) % gridSizeY;
                 const neighborKey = coordKey(wrappedX, wrappedY);
 
-                // Increment neighbor count for this neighbor
                 neighborCounts.set(neighborKey, (neighborCounts.get(neighborKey) || 0) + 1);
-                // Mark this neighbor as relevant for the next step's check
                 relevantCells.add(neighborKey);
             }
         }
     }
 
-    const nextLiveCells = new Set(); // Holds live cells for the *next* generation
-    const changes = []; // Array for {x, y, alive} changes to send back
+    const nextLiveCells = new Set();
+    const changes = [];
 
-    // 2. Iterate through RELEVANT cells (live cells and their neighbors)
     for (const key of relevantCells) {
         const { x, y } = parseKey(key);
-        const count = neighborCounts.get(key) || 0; // Get neighbor count (0 if not in map)
+        const count = neighborCounts.get(key) || 0;
         const isCurrentlyAlive = liveCells.has(key);
         let willBeAlive = false;
 
         // Apply Game of Life rules
         if (isCurrentlyAlive && (count === 2 || count === 3)) {
-            willBeAlive = true; // Survives
+            willBeAlive = true;
         } else if (!isCurrentlyAlive && count === 3) {
-            willBeAlive = true; // Born
+            willBeAlive = true;
         }
-        // else: Dies or stays dead (willBeAlive remains false)
 
-        // 3. Determine next state and record changes
         if (willBeAlive) {
-            nextLiveCells.add(key); // Add to next generation's live set
+            nextLiveCells.add(key);
         }
 
-        // Record change *only if* the state is different from the current state
         if (isCurrentlyAlive !== willBeAlive) {
             changes.push({ x: x, y: y, alive: willBeAlive });
         }
     }
 
-    // 4. Update the worker's state
     liveCells = nextLiveCells;
     generationCount++;
 
-    // 5. Send changes back to the main thread
     if (changes.length > 0) {
-        // console.log(`Worker sending state changes (Gen: ${generationCount}), Count: ${changes.length}`);
         try {
             self.postMessage({ type: 'stateChanges', changes: changes });
         } catch (e) {
             console.error("Error posting stateChanges message:", e);
             stopGameLoop();
         }
-    } else {
-        // console.log(`Worker: No changes in Gen: ${generationCount}`);
     }
 }
 
-// --- Simulation Loop Control (Unchanged) ---
 function startGameLoop() {
      if (!simulationRunning) {
          console.log('Worker: startGameLoop called - Starting sparse simulation loop');
          simulationRunning = true;
          generationCount = 0;
          if (intervalId) clearInterval(intervalId);
-         intervalId = setInterval(updateGameStateSparse, gameSpeed); // Use sparse update function
+         intervalId = setInterval(updateGameStateSparse, gameSpeed);
          console.log('Worker: Interval started with ID:', intervalId, 'Speed:', gameSpeed);
-     } else { /* Already running */ }
+     }
 }
 function stopGameLoop() {
      if (simulationRunning) {
@@ -123,7 +108,6 @@ function stopGameLoop() {
 }
 
 
-// --- Worker Message Handler ---
 self.onmessage = function(e) {
     const data = e.data;
     console.log('Worker Received Message:', data?.type);
@@ -135,14 +119,12 @@ self.onmessage = function(e) {
             console.log('Worker: Processing init message (sparse).');
             if (!data.config || !data.initialGameState) { console.error('Worker init: Missing config or initialGameState.'); return; }
 
-            // Stop any previous simulation just in case
             stopGameLoop();
 
             gridSizeX = data.config.gridSizeX;
             gridSizeY = data.config.gridSizeY;
             gameSpeed = data.config.gameSpeed;
 
-            // --- Convert received 2D array state to Set representation ---
             liveCells = new Set();
             const initialGameStateArray = data.initialGameState;
             if (Array.isArray(initialGameStateArray)) {
@@ -157,10 +139,8 @@ self.onmessage = function(e) {
                 }
             } else {
                  console.error("Worker init: initialGameState was not an array!");
-                 // Handle error - perhaps request state again or stop
                  return;
             }
-            // --- End Conversion ---
 
             console.log(`Worker Initialized: ${gridSizeX}x${gridSizeY}, Speed: ${gameSpeed}, Initial Live Cells: ${liveCells.size}`);
             break;
@@ -175,10 +155,10 @@ self.onmessage = function(e) {
              stopGameLoop();
              break;
 
-        case 'setCells': // Handle manual cell changes from main thread
+        case 'setCells':
              console.log('Worker: Processing setCells message (sparse).');
              if (liveCells && data.cells && Array.isArray(data.cells)) {
-                 const cellsThatActuallyChanged = []; // Track changes *caused* by this message
+                 const cellsThatActuallyChanged = [];
                  data.cells.forEach(cell => {
                      if (typeof cell === 'object' && cell !== null && typeof cell.x === 'number' && typeof cell.y === 'number' && typeof cell.alive === 'boolean') {
                          if (cell.y >= 0 && cell.y < gridSizeY && cell.x >= 0 && cell.x < gridSizeX) {
@@ -186,23 +166,21 @@ self.onmessage = function(e) {
                              const currentlyAlive = liveCells.has(key);
                              let stateChanged = false;
 
-                             if (cell.alive && !currentlyAlive) { // Make alive
+                             if (cell.alive && !currentlyAlive) {
                                  liveCells.add(key);
                                  stateChanged = true;
-                             } else if (!cell.alive && currentlyAlive) { // Make dead
+                             } else if (!cell.alive && currentlyAlive) {
                                  liveCells.delete(key);
                                  stateChanged = true;
                              }
 
                              if (stateChanged) {
-                                 // Add this change to the list to send back for immediate draw update
                                  cellsThatActuallyChanged.push({ x: cell.x, y: cell.y, alive: cell.alive });
                              }
-                         } else { /* Out of bounds log */ }
-                     } else { /* Invalid structure log */ }
+                         }
+                     }
                  });
 
-                 // Send back ONLY the changes made by this specific "setCells" call
                  if (cellsThatActuallyChanged.length > 0) {
                      console.log(`Worker: Sending ${cellsThatActuallyChanged.length} state changes after setCells.`);
                      try {
@@ -212,11 +190,10 @@ self.onmessage = function(e) {
                         stopGameLoop();
                      }
                  }
-             } else { /* Invalid data log */ }
+             }
              break;
 
         case 'updateSpeed':
-             // (No change needed from previous version)
              console.log('Worker: Processing updateSpeed message.');
              if (typeof data.gameSpeed === 'number' && data.gameSpeed > 0) {
                  gameSpeed = data.gameSpeed;
@@ -225,7 +202,7 @@ self.onmessage = function(e) {
                      console.log('Worker: Restarting loop for new speed.');
                      stopGameLoop(); startGameLoop();
                  }
-             } else { /* Invalid value log */ }
+             }
              break;
 
         default:

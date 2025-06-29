@@ -3,25 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>valis-world</title> <!-- Changed title -->
+  <title>valis-world</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Floating Header Bar -->
-  <div id="header-bar" class="header-hidden"> <!-- Start hidden -->
-    <h1>Welcome to my <span class="span">Website</span></h1>
-    <a class="github" href="https://github.com/valis-world" target="_blank"> Git Hub</a>
-  </div>
-  
-  <!-- Pattern Indicator -->
-  <div id="pattern-indicator">
+
+  <!-- Game Controls -->
+  <div id="game-controls">
     <span>Current Pattern: <span id="current-pattern-name">glider</span></span>
     <span>(Press SPACE to cycle patterns)</span>
+    <span> Cell Shape: <span id="current-shape-name">square</span></span>
+    <span>(Press S to switch between round and square cells)</span>
   </div>
   
-  <!-- Container remains the same -->
   <div id="container">
-    <!-- Board div is replaced by a canvas element -->
+
     <canvas id="board-canvas"></canvas>
   </div>
   <div id="content">
@@ -31,7 +27,6 @@
     </p>
   </div>
   
-  <!-- Content remains the same -->
   <div id="content">
     <h2>About the Game of Life</h2>
     <p>
